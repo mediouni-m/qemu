@@ -110,5 +110,6 @@ bool hvf_arch_supports_guest_debug(void);
 
 uint32_t hvf_arch_get_default_ipa_bit_size(void);
 uint32_t hvf_arch_get_max_ipa_bit_size(void);
+bool hvf_arch_cpu_realize(CPUState *cpu, Error **errp);
 
 #endif
