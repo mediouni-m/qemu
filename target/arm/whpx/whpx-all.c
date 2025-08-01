@@ -35,6 +35,7 @@
 #include "system/whpx-accel-ops.h"
 #include "system/whpx-all.h"
 #include "system/whpx-common.h"
+#include "whpx_arm.h"
 #include "hw/arm/bsa.h"
 #include "arm-powerctl.h"
 
@@ -568,7 +569,7 @@ static void whpx_cpu_update_state(void *opaque, bool running, RunState state)
     }
 }
 
-static uint32_t whpx_arm_get_max_ipa_bit_size(void)
+uint32_t whpx_arm_get_max_ipa_bit_size(void)
 {
     WHV_CAPABILITY whpx_cap;
     UINT32 whpx_cap_size;
@@ -579,7 +580,6 @@ static uint32_t whpx_arm_get_max_ipa_bit_size(void)
     if (FAILED(hr)) {
         error_report("WHPX: failed to get supported physical address width, hr=%08lx", hr);
     }
-    printf("Physical address width: %i\n", whpx_cap.PhysicalAddressWidth);
 
     /*
      * We clamp any IPA size we want to back the VM with to a valid PARange
@@ -692,12 +692,21 @@ int whpx_accel_init(AccelState *as, MachineState *ms) {
     UINT32 whpx_cap_size;
     WHV_PARTITION_PROPERTY prop;
     WHV_CAPABILITY_FEATURES features = {0};
+    MachineClass *mc = MACHINE_GET_CLASS(ms);
+    int pa_range = 0;
 
     whpx = &whpx_global;
 
     if (!init_whp_dispatch()) {
         ret = -ENOSYS;
         goto error;
+    }
+
+    if (mc->whpx_get_physical_address_range) {
+        pa_range = mc->whpx_get_physical_address_range(ms);
+        if (pa_range < 0) {
+            return -EINVAL;
+        }
     }
 
     whpx->mem_quota = ms->ram_size;
