@@ -123,11 +123,13 @@ static const struct whpx_reg_match whpx_fpreg_match[] = {
 struct whpx_sreg_match {
     WHV_REGISTER_NAME reg;
     uint32_t key;
+    bool global;
     uint32_t cp_idx;
 };
 
 static struct whpx_sreg_match whpx_sreg_match[] = {
-/*  { WHvArm64RegisterDbgbvr0El1, WHPX_SYSREG(0, 0, 2, 0, 4) },
+/* Do not currently deal with the debug registers: leave them here for experimentation
+    { WHvArm64RegisterDbgbvr0El1, WHPX_SYSREG(0, 0, 2, 0, 4) },
     { WHvArm64RegisterDbgbcr0El1, WHPX_SYSREG(0, 0, 2, 0, 5) },
     { WHvArm64RegisterDbgwvr0El1, WHPX_SYSREG(0, 0, 2, 0, 6) },
     { WHvArm64RegisterDbgwcr0El1, WHPX_SYSREG(0, 0, 2, 0, 7) },
@@ -216,18 +218,18 @@ static struct whpx_sreg_match whpx_sreg_match[] = {
     { WHvArm64RegisterMpidrEl1, WHPX_SYSREG(0, 0, 3, 0, 5) },
     { WHvArm64RegisterIdPfr0El1, WHPX_SYSREG(0, 4, 3, 0, 0) },
 #endif
-//    { WHvArm64RegisterIdPfr1El1, WHPX_SYSREG(0, 4, 3, 0, 1) },
-//    { WHvArm64RegisterIdDfr0El1, WHPX_SYSREG(0, 5, 3, 0, 0) },
-//    { WHvArm64RegisterIdAa64Dfr1El1, WHPX_SYSREG(0, 5, 3, 0, 1) },
-//    { WHvArm64RegisterIdAa64Isar0El1, WHPX_SYSREG(0, 6, 3, 0, 0) },
-//    { WHvArm64RegisterIdAa64Isar1El1, WHPX_SYSREG(0, 6, 3, 0, 1) },
+    { WHvArm64RegisterIdPfr1El1, WHPX_SYSREG(0, 4, 3, 0, 1), true },
+    { WHvArm64RegisterIdDfr0El1, WHPX_SYSREG(0, 5, 3, 0, 0), true },
+    { WHvArm64RegisterIdAa64Dfr1El1, WHPX_SYSREG(0, 5, 3, 0, 1), true },
+    { WHvArm64RegisterIdAa64Isar0El1, WHPX_SYSREG(0, 6, 3, 0, 0), true },
+    { WHvArm64RegisterIdAa64Isar1El1, WHPX_SYSREG(0, 6, 3, 0, 1), true },
 #ifdef SYNC_NO_MMFR0
     /* We keep the hardware MMFR0 around. HW limits are there anyway */
     { WHvArm64RegisterIdAa64Mmfr0El1, WHPX_SYSREG(0, 7, 3, 0, 0) },
 #endif
-//    { WHvArm64RegisterIdAa64Mmfr1El1, WHPX_SYSREG(0, 7, 3, 0, 1) },
-//    { WHvArm64RegisterIdAa64Mmfr2El1, WHPX_SYSREG(0, 7, 3, 0, 2) },
-//    { WHvArm64RegisterIdAa64Mmfr3El1, WHPX_SYSREG(0, 7, 3, 0, 3) },
+    { WHvArm64RegisterIdAa64Mmfr1El1, WHPX_SYSREG(0, 7, 3, 0, 1), true },
+    { WHvArm64RegisterIdAa64Mmfr2El1, WHPX_SYSREG(0, 7, 3, 0, 2), true },
+    { WHvArm64RegisterIdAa64Mmfr3El1, WHPX_SYSREG(0, 7, 3, 0, 3), true },
 
     { WHvArm64RegisterMdscrEl1, WHPX_SYSREG(0, 2, 2, 0, 2) },
     { WHvArm64RegisterSctlrEl1, WHPX_SYSREG(1, 0, 3, 0, 0) },
@@ -294,6 +296,31 @@ static void whpx_set_reg(CPUState *cpu, WHV_REGISTER_NAME reg, WHV_REGISTER_VALU
     struct whpx_state *whpx = &whpx_global;
     HRESULT hr;
     hr = whp_dispatch.WHvSetVirtualProcessorRegisters(whpx->partition, cpu->cpu_index,
+         &reg, 1, &val);
+
+    if (FAILED(hr)) {
+        error_report("WHPX: Failed to set register %08x, hr=%08lx", reg, hr);
+    }
+}
+
+static void whpx_get_global_reg(WHV_REGISTER_NAME reg, WHV_REGISTER_VALUE* val)
+{
+    struct whpx_state *whpx = &whpx_global;
+    HRESULT hr;
+
+    hr = whp_dispatch.WHvGetVirtualProcessorRegisters(whpx->partition, WHV_ANY_VP,
+         &reg, 1, val);
+
+    if (FAILED(hr)) {
+        error_report("WHPX: Failed to get register %08x, hr=%08lx", reg, hr);
+    }
+}
+
+static void whpx_set_global_reg(WHV_REGISTER_NAME reg, WHV_REGISTER_VALUE val)
+{
+    struct whpx_state *whpx = &whpx_global;
+    HRESULT hr;
+    hr = whp_dispatch.WHvSetVirtualProcessorRegisters(whpx->partition, WHV_ANY_VP,
          &reg, 1, &val);
 
     if (FAILED(hr)) {
@@ -475,6 +502,10 @@ int whpx_vcpu_run(CPUState *cpu) {
     return ret < 0;
 }
 
+static void clean_whv_register_value(WHV_REGISTER_VALUE* val) {
+    memset(val, 0, sizeof(WHV_REGISTER_VALUE));
+}
+
 void whpx_get_registers(CPUState *cpu) {
     ARMCPU *arm_cpu = ARM_CPU(cpu);
     CPUARMState *env = &arm_cpu->env;
@@ -504,11 +535,28 @@ void whpx_get_registers(CPUState *cpu) {
     pstate_write(env, val.Reg32);
 
     for (i = 0; i < ARRAY_SIZE(whpx_sreg_match); i++) {
+        if (whpx_sreg_match[i].global == true) {
+            continue;
+        }
         if (whpx_sreg_match[i].cp_idx == -1) {
             continue;
         }
 
         whpx_get_reg(cpu, whpx_sreg_match[i].reg, &val);
+
+        arm_cpu->cpreg_values[whpx_sreg_match[i].cp_idx] = val.Reg64;
+    }
+
+    /* WHP disallows us from reading global regs as a vCPU */
+    for (i = 0; i < ARRAY_SIZE(whpx_sreg_match); i++) {
+        if (whpx_sreg_match[i].global == false) {
+            continue;
+        }
+        if (whpx_sreg_match[i].cp_idx == -1) {
+            continue;
+        }
+
+        whpx_get_global_reg(whpx_sreg_match[i].reg, &val);
 
         arm_cpu->cpreg_values[whpx_sreg_match[i].cp_idx] = val.Reg64;
     }
@@ -521,6 +569,7 @@ void whpx_set_registers(CPUState *cpu, int level) {
     ARMCPU *arm_cpu = ARM_CPU(cpu);
     CPUARMState *env = &arm_cpu->env;
     WHV_REGISTER_VALUE val;
+    clean_whv_register_value(&val);
     int i;
 
     assert(cpu_is_stopped(cpu) || qemu_cpu_is_self(cpu));
@@ -535,9 +584,11 @@ void whpx_set_registers(CPUState *cpu, int level) {
         whpx_set_reg(cpu, whpx_reg_match[i].reg, val);
     }
 
+    clean_whv_register_value(&val);
     val.Reg64 = env->pc;
     whpx_set_reg(cpu, WHvArm64RegisterPc, val);
 
+    clean_whv_register_value(&val);
     val.Reg32 = vfp_get_fpcr(env);
     whpx_set_reg(cpu, WHvArm64RegisterFpcr, val);
     val.Reg32 = vfp_get_fpsr(env);
@@ -549,12 +600,30 @@ void whpx_set_registers(CPUState *cpu, int level) {
 
     assert(write_cpustate_to_list(arm_cpu, false));
     for (i = 0; i < ARRAY_SIZE(whpx_sreg_match); i++) {
-        if (whpx_sreg_match[i].cp_idx == -1) {
+        if (whpx_sreg_match[i].global == true) {
             continue;
         }
 
+        if (whpx_sreg_match[i].cp_idx == -1) {
+            continue;
+        }
+        clean_whv_register_value(&val);
         val.Reg64 = arm_cpu->cpreg_values[whpx_sreg_match[i].cp_idx];
         whpx_set_reg(cpu, whpx_sreg_match[i].reg, val);
+    }
+
+    /* Currently set global regs every time. */
+    for (i = 0; i < ARRAY_SIZE(whpx_sreg_match); i++) {
+        if (whpx_sreg_match[i].global == false) {
+            continue;
+        }
+
+        if (whpx_sreg_match[i].cp_idx == -1) {
+            continue;
+        }
+        clean_whv_register_value(&val);
+        val.Reg64 = arm_cpu->cpreg_values[whpx_sreg_match[i].cp_idx];
+        whpx_set_global_reg(whpx_sreg_match[i].reg, val);
     }
 }
 
@@ -672,6 +741,12 @@ int whpx_init_vcpu(CPUState *cpu) {
     /* Set CP_NO_RAW system registers on init */
     val.Reg64 = arm_cpu->midr;
     whpx_set_reg(cpu, WHvArm64RegisterMidrEl1,
+                              val);
+    clean_whv_register_value(&val);
+
+    /* bit 31 of MPIDR_EL1 is RES1, and this is enforced by WHPX */
+    val.Reg64 = 0x80000000 + arm_cpu->mp_affinity;
+    whpx_set_reg(cpu, WHvArm64RegisterMpidrEl1,
                               val);
 
     clamp_id_aa64mmfr0_parange_to_ipa_size(&arm_cpu->isar);
