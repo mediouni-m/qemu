@@ -873,7 +873,6 @@ int whpx_accel_init(AccelState *as, MachineState *ms) {
 
     whpx_memory_init();
 
-    printf("Windows Hypervisor Platform accelerator is operational\n");
     return 0;
 
 error:
