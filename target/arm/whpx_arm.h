@@ -11,6 +11,6 @@
 
 #include "target/arm/cpu-qom.h"
 
-uint32_t whpx_arm_get_max_ipa_bit_size(void);
+uint32_t whpx_arm_get_ipa_bit_size(void);
 
 #endif

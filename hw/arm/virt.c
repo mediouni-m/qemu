@@ -3167,7 +3167,7 @@ static int virt_whpx_get_physical_address_range(MachineState *ms)
 {
     VirtMachineState *vms = VIRT_MACHINE(ms);
 
-    int max_ipa_size = whpx_arm_get_max_ipa_bit_size();
+    int max_ipa_size = whpx_arm_get_ipa_bit_size();
 
     /* We freeze the memory map to compute the highest gpa */
     virt_set_memmap(vms, max_ipa_size);

@@ -569,7 +569,7 @@ static void whpx_cpu_update_state(void *opaque, bool running, RunState state)
     }
 }
 
-uint32_t whpx_arm_get_max_ipa_bit_size(void)
+uint32_t whpx_arm_get_ipa_bit_size(void)
 {
     WHV_CAPABILITY whpx_cap;
     UINT32 whpx_cap_size;
@@ -592,7 +592,7 @@ uint32_t whpx_arm_get_max_ipa_bit_size(void)
 
 static void clamp_id_aa64mmfr0_parange_to_ipa_size(ARMISARegisters *isar)
 {
-    uint32_t ipa_size = whpx_arm_get_max_ipa_bit_size();
+    uint32_t ipa_size = whpx_arm_get_ipa_bit_size();
     uint64_t id_aa64mmfr0;
 
     /* Clamp down the PARange to the IPA size the kernel supports. */
