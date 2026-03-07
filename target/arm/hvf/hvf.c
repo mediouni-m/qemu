@@ -41,6 +41,37 @@
 
 #include "gdbstub/enums.h"
 
+static inline bool hvf_arm_sme2_supported(void)
+{
+    if (__builtin_available(macOS 15.2, *)) {
+        size_t svl_bytes;
+        hv_return_t result = hv_sme_config_get_max_svl_bytes(&svl_bytes);
+        /* Nested virt not supported together with SME right now. */
+        if (hvf_nested_virt_enabled()) {
+            return false;
+        }
+        if (result == HV_UNSUPPORTED) {
+            return false;
+        }
+        assert_hvf_ok(result);
+        return svl_bytes > 0;
+    } else {
+        return false;
+    }
+}
+
+static inline uint32_t hvf_arm_sme2_get_svl(void)
+{
+    if (__builtin_available(macOS 15.2, *)) {
+        size_t svl_bytes;
+        hv_return_t result = hv_sme_config_get_max_svl_bytes(&svl_bytes);
+        assert_hvf_ok(result);
+        return svl_bytes;
+    } else {
+        abort();
+    }
+}
+
 #define MDSCR_EL1_SS_SHIFT  0
 #define MDSCR_EL1_MDE_SHIFT 15
 
