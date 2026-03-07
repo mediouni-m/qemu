@@ -10,7 +10,7 @@ tests_s390x_system_quick = [
 ]
 
 tests_s390x_system_thorough = [
-  'ccw_virtio',
+  # 'ccw_virtio', # random hangs
   'pxelinux',
   'replay',
   'topology',

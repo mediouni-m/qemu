@@ -1984,7 +1984,7 @@ static void coroutine_fn convert_co_do_copy(void *opaque)
     buf = blk_blockalign(s->target, s->buf_sectors * BDRV_SECTOR_SIZE);
 
     while (1) {
-        int n;
+        int n = 0;
         int64_t sector_num;
         enum ImgConvertBlockStatus status;
         bool copy_range;

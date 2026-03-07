@@ -247,7 +247,8 @@ class QAPIDescription(ParserFix):
             ns = ""
 
         if "." in name:
-            module, name = name.split(".")
+            #module, name = name.split(".")
+            module = ""
         else:
             module = ""
 

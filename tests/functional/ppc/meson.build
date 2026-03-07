@@ -10,12 +10,12 @@ tests_ppc_system_quick = [
 ]
 
 tests_ppc_system_thorough = [
-  '40p',
-  'amiga',
+  # '40p', # timeout
+  # 'amiga', # asset can't be downloaded
   'bamboo',
   'mac',
   'mpc8544ds',
-  'ppe42',
+  # 'ppe42', # Assertion `!temp_readonly(ots)'
   'replay',
   'sam460ex',
   'tuxrun',

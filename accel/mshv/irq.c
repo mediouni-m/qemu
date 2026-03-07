@@ -87,7 +87,7 @@ static int add_msi_routing(uint64_t addr, uint32_t data)
     struct mshv_user_irq_entry *route_entry;
     uint32_t high_addr = addr >> 32;
     uint32_t low_addr = addr & 0xFFFFFFFF;
-    int gsi;
+    int gsi = 0;
     GHashTable *gsi_routes;
 
     trace_mshv_add_msi_routing(addr, data);

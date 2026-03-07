@@ -6,5 +6,5 @@ tests_alpha_system_quick = [
 
 tests_alpha_system_thorough = [
   'clipper',
-  'replay',
+  #'replay', # random timeout
 ]

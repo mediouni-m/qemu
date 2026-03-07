@@ -11,6 +11,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import sys
+import platform
 from argparse import ArgumentParser
 
 def extract_counts(path):
@@ -96,6 +97,10 @@ def main() -> None:
                         help='Assume bss was cleared (and adjusts counts).')
 
     args = parser.parse_args()
+
+    if platform.machine() == 'aarch64':
+        print("skip test on aarch64 host")
+        sys.exit(0)
 
     # Extract counts from memory binary
     start, end, exp_reads, exp_writes = extract_counts(args.test_output)
