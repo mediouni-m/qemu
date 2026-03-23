@@ -709,6 +709,9 @@ for opt do
       meson_option_add -Doptimization=0
       default_cflags='-O0 -g'
   ;;
+  --enable-pdb)
+      meson_option_add -Dpdb=true
+  ;;
   --disable-tcg) tcg="disabled"
   ;;
   --enable-tcg) tcg="enabled"
