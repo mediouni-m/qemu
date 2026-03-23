@@ -885,10 +885,24 @@ static void read_segment_descriptor(CPUState *cpu,
     }
 }
 
+static bool is_long_mode(CPUState *cpu)
+{
+    AccelCPUState *vcpu = cpu->accel;
+
+    return vcpu->exit_ctx.VpContext.ExecutionState.EferLma == 1;  
+}
+
+static bool is_user_mode(CPUState *cpu)
+{
+    AccelCPUState *vcpu = cpu->accel;
+    return vcpu->exit_ctx.VpContext.ExecutionState.Cpl == 3;
+}
 
 static const struct x86_emul_ops whpx_x86_emul_ops = {
     .read_segment_descriptor = read_segment_descriptor,
-    .handle_io = handle_io
+    .handle_io = handle_io,
+    .is_long_mode = is_long_mode,
+    .is_user_mode = is_user_mode
 };
 
 static void whpx_init_emu(void)
