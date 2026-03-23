@@ -218,8 +218,12 @@ target_ulong x86_read_cr(CPUState *cpu, int cr) {
 
 bool x86_is_protected(CPUState *cpu)
 {
-    uint64_t cr0 = x86_read_cr(cpu, 0);
+    uint64_t cr0;
+    if (emul_ops->is_protected_mode) {
+        return emul_ops->is_protected_mode(cpu);
+    }
 
+    cr0 = x86_read_cr(cpu, 0);
     return cr0 & CR0_PE_MASK;
 }
 
