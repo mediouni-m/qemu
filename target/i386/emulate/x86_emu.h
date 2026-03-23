@@ -32,6 +32,7 @@ struct x86_emul_ops {
                       int size, int count);
     void (*simulate_rdmsr)(CPUState *cs);
     void (*simulate_wrmsr)(CPUState *cs);
+    bool (*is_long_mode)(CPUState *cpu);
 };
 
 extern const struct x86_emul_ops *emul_ops;

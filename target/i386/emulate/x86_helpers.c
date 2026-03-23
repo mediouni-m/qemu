@@ -234,6 +234,9 @@ bool x86_is_long_mode(CPUState *cpu)
     uint64_t efer = env->efer;
     uint64_t lme_lma = (MSR_EFER_LME | MSR_EFER_LMA);
 
+    if (emul_ops->is_long_mode) {
+        return emul_ops->is_long_mode(cpu);
+    }
     return ((efer & lme_lma) == lme_lma);
 }
 
