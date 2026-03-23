@@ -156,6 +156,26 @@ static const WHV_REGISTER_NAME whpx_register_names[] = {
      */
 };
 
+static const WHV_REGISTER_NAME whpx_register_names_for_vmexit[] = {
+    /* X64 General purpose registers */
+    WHvX64RegisterRax,
+    WHvX64RegisterRcx,
+    WHvX64RegisterRdx,
+    WHvX64RegisterRbx,
+    WHvX64RegisterRsp,
+    WHvX64RegisterRbp,
+    WHvX64RegisterRsi,
+    WHvX64RegisterRdi,
+    WHvX64RegisterR8,
+    WHvX64RegisterR9,
+    WHvX64RegisterR10,
+    WHvX64RegisterR11,
+    WHvX64RegisterR12,
+    WHvX64RegisterR13,
+    WHvX64RegisterR14,
+    WHvX64RegisterR15,
+};
+
 struct whpx_register_set {
     WHV_REGISTER_VALUE values[RTL_NUMBER_OF(whpx_register_names)];
 };
@@ -593,6 +613,47 @@ static void whpx_get_xcrs(CPUState *cpu)
     cpu_env(cpu)->xcr0 = xcr0.Reg64;
 }
 
+static void whpx_get_registers_for_vmexit(CPUState *cpu, WHPXStateLevel level)
+{
+    struct whpx_state *whpx = &whpx_global;
+    AccelCPUState *vcpu = cpu->accel;
+    X86CPU *x86_cpu = X86_CPU(cpu);
+    CPUX86State *env = &x86_cpu->env;
+    struct whpx_register_set vcxt;
+    HRESULT hr;
+    int idx;
+    int idx_next;
+
+    assert(cpu_is_stopped(cpu) || qemu_cpu_is_self(cpu));
+
+    hr = whp_dispatch.WHvGetVirtualProcessorRegisters(
+        whpx->partition, cpu->cpu_index,
+        whpx_register_names_for_vmexit,
+        RTL_NUMBER_OF(whpx_register_names_for_vmexit),
+        &vcxt.values[0]);
+    if (FAILED(hr)) {
+        error_report("WHPX: Failed to get virtual processor context, hr=%08lx",
+                     hr);
+    }
+
+    idx = 0;
+
+    /* Indexes for first 16 registers match between HV and QEMU definitions */
+    idx_next = 16;
+    for (idx = 0; idx < CPU_NB_REGS; idx += 1) {
+        env->regs[idx] = vcxt.values[idx].Reg64;
+    }
+    idx = idx_next;
+
+    env->eip = vcpu->exit_ctx.VpContext.Rip;
+    env->eflags = vcpu->exit_ctx.VpContext.Rflags;
+    rflags_to_lflags(env);
+
+    assert(idx == RTL_NUMBER_OF(whpx_register_names_for_vmexit));
+
+    x86_update_hflags(env);
+}
+
 void whpx_get_registers(CPUState *cpu, WHPXStateLevel level)
 {
     struct whpx_state *whpx = &whpx_global;
@@ -607,6 +668,10 @@ void whpx_get_registers(CPUState *cpu, WHPXStateLevel level)
     int i;
 
     assert(cpu_is_stopped(cpu) || qemu_cpu_is_self(cpu));
+
+    if (level == WHPX_LEVEL_FAST_RUNTIME_STATE) {
+        return whpx_get_registers_for_vmexit(cpu, level);
+    }
 
     if (level > WHPX_LEVEL_FAST_RUNTIME_STATE && !env->tsc_valid) {
         whpx_get_tsc(cpu);
