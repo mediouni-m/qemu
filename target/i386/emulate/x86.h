@@ -164,6 +164,22 @@ static inline void x86_set_segment_limit(x86_segment_descriptor *desc,
     desc->limit1 = limit >> 16;
 }
 
+static inline SegmentCache x86_segment_descriptor_to_segcache(x86_segment_descriptor *desc)
+{
+    SegmentCache seg;
+    seg.base = x86_segment_base(desc);
+    seg.limit = x86_segment_limit(desc);
+    seg.flags = (desc->type << DESC_TYPE_SHIFT) |
+                  (desc->s << DESC_S_SHIFT) |
+                  (desc->dpl << DESC_DPL_SHIFT) |
+                  (desc->p << DESC_P_SHIFT) |
+                  (desc->avl << DESC_AVL_SHIFT) |
+                  (desc->l << DESC_L_SHIFT) |
+                  (desc->db << DESC_B_SHIFT) |
+                  (desc->g << DESC_G_SHIFT);
+    return seg;
+}
+
 typedef struct x86_call_gate {
     uint64_t offset0:16;
     uint64_t selector:16;
