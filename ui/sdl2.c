@@ -126,7 +126,9 @@ void sdl2_window_create(struct sdl2_console *scon)
     }
 
 #ifdef CONFIG_OPENGL
-    qemu_egl_display = eglGetCurrentDisplay();
+    if (scon->opengl) {
+        qemu_egl_display = eglGetCurrentDisplay();
+    }
 #endif
 
     sdl_update_caption(scon);
