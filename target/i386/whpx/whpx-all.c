@@ -3111,11 +3111,15 @@ int whpx_accel_init(AccelState *as, MachineState *ms)
             WHvPartitionPropertyCodeNestedVirtualization,
             &prop,
             sizeof(WHV_PARTITION_PROPERTY));
-            if (FAILED(hr)) {
-                error_report("WHPX: Failed to enable nested virtualization, hr=%08lx", hr);
-                ret = -EINVAL;
-                goto error;
+        if (FAILED(hr)) {
+            error_report("WHPX: Failed to enable nested virtualization, hr=%08lx", hr);
+            ret = -EINVAL;
+            goto error;
+        } else {
+            info_report("Nested virtualisation enabled.");
         }
+    } else {
+        info_report("Nested virtualisation not available.");
     }
 
     hr = whp_dispatch.WHvSetPartitionProperty(
