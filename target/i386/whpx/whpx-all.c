@@ -1333,7 +1333,7 @@ bool whpx_is_legacy_os(void)
 
 uint32_t whpx_get_supported_cpuid(uint32_t func, uint32_t idx, int reg)
 {
-    WHV_CPUID_OUTPUT output;
+    WHV_CPUID_OUTPUT output = {};
     uint32_t eax, ebx, ecx, edx;
     uint32_t cpu_index = 0;
     bool temp_cpu = true;
