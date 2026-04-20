@@ -8090,12 +8090,14 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w)
                                     wi->cpuid.ecx,
                                     wi->cpuid.reg);
     } else if (whpx_enabled()) {
-        if (wi->type != CPUID_FEATURE_WORD) {
-            return 0;
-        } else {
-            r = whpx_get_supported_cpuid(wi->cpuid.eax,
-                                        wi->cpuid.ecx,
-                                        wi->cpuid.reg);
+        switch (wi->type) {
+        case CPUID_FEATURE_WORD:
+            r = whpx_get_supported_cpuid(wi->cpuid.eax, wi->cpuid.ecx,
+                                                            wi->cpuid.reg);
+            break;
+        case MSR_FEATURE_WORD:
+            r = whpx_get_supported_msr_feature(wi->msr.index);
+            break;
         }
     } else if (tcg_enabled() || qtest_enabled()) {
         r = wi->tcg_features;

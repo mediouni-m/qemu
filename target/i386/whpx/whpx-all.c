@@ -1396,6 +1396,66 @@ uint32_t whpx_get_supported_cpuid(uint32_t func, uint32_t idx, int reg)
     }
 }
 
+uint64_t whpx_get_supported_msr_feature(uint32_t index)
+{
+    WHV_CAPABILITY_CODE cap;
+    uint64_t val = 0;
+
+    switch (index) {
+    case MSR_IA32_VMX_BASIC:
+        cap = WHvCapabilityCodeVmxBasic;
+        break;
+    case MSR_IA32_VMX_MISC:
+        cap = WHvCapabilityCodeVmxMisc;
+        break;
+    case MSR_IA32_VMX_CR0_FIXED0:
+        cap = WHvCapabilityCodeVmxCr0Fixed0;
+        break;
+    case MSR_IA32_VMX_CR0_FIXED1:
+        cap = WHvCapabilityCodeVmxCr0Fixed1;
+        break;
+    case MSR_IA32_VMX_CR4_FIXED0:
+        cap = WHvCapabilityCodeVmxCr4Fixed0;
+        break;
+    case MSR_IA32_VMX_CR4_FIXED1:
+        cap = WHvCapabilityCodeVmxCr4Fixed1;
+        break;
+    case MSR_IA32_VMX_VMCS_ENUM:
+        cap = WHvCapabilityCodeVmxVmcsEnum;
+        break;
+    case MSR_IA32_VMX_PROCBASED_CTLS2:
+        cap = WHvCapabilityCodeVmxProcbasedCtls2;
+        break;
+    case MSR_IA32_VMX_EPT_VPID_CAP:
+        cap = WHvCapabilityCodeVmxEptVpidCap;
+        break;
+    case MSR_IA32_VMX_TRUE_PINBASED_CTLS:
+        cap = WHvCapabilityCodeVmxPinbasedCtls;
+        break;
+    case MSR_IA32_VMX_TRUE_PROCBASED_CTLS:
+        cap = WHvCapabilityCodeVmxProcbasedCtls;
+        break;
+    case MSR_IA32_VMX_TRUE_ENTRY_CTLS:
+        cap = WHvCapabilityCodeVmxTrueEntryCtls;
+        break;
+    case MSR_IA32_VMX_TRUE_EXIT_CTLS:
+        cap = WHvCapabilityCodeVmxTrueExitCtls;
+        break;
+    default:
+        cap = 0;
+    }
+
+    if (cap != 0) {
+        HRESULT hr = whp_dispatch.WHvGetCapability(
+            cap, &val, sizeof(val),
+                NULL);
+        if (FAILED(hr)) {
+            return 0;
+        }
+    }
+    return 0;
+}
+
 static UINT64 whpx_get_default_exceptions(void)
 {
     struct whpx_state *whpx = &whpx_global;
