@@ -2888,14 +2888,24 @@ static PropValue whpx_default_props[] = {
     { NULL, NULL },
 };
 
+/* This is in kvm_default_props */
+static PropValue whpx_no_nested_props[] = {
+    { "svm", "off" },
+    { NULL, NULL },
+};
 
 void whpx_cpu_instance_init(CPUState *cs)
 {
     X86CPU *cpu = X86_CPU(cs);
     X86CPUClass *xcc = X86_CPU_GET_CLASS(cpu);
+    struct whpx_state *whpx = &whpx_global;
 
     host_cpu_instance_init(cpu);
     x86_cpu_apply_props(cpu, whpx_default_props);
+
+    if (!whpx->nested_virt_enabled) {
+        x86_cpu_apply_props(cpu, whpx_no_nested_props);
+    }
 
     if (xcc->max_features) {
         whpx_cpu_max_instance_init(cpu);
@@ -2974,6 +2984,39 @@ static void whpx_set_intercept_msr_gp(Object *obj, Visitor *v,
     }
 }
 
+static void whpx_set_nested_virt(Object *obj, Visitor *v,
+                                   const char *name, void *opaque,
+                                   Error **errp)
+{
+    struct whpx_state *whpx = &whpx_global;
+    OnOffAuto mode;
+
+    if (!visit_type_OnOffAuto(v, name, &mode, errp)) {
+        return;
+    }
+
+    switch (mode) {
+    case ON_OFF_AUTO_ON:
+        whpx->nested_virt_enabled = true;
+        break;
+
+    case ON_OFF_AUTO_OFF:
+        whpx->nested_virt_enabled = false;
+        break;
+
+    case ON_OFF_AUTO_AUTO:
+        whpx->nested_virt_enabled = true;
+        break;
+    default:
+        /*
+         * The value was checked in visit_type_OnOffAuto() above. If
+         * we get here, then something is wrong in QEMU.
+         */
+        abort();
+    }
+}
+
+
 void whpx_arch_accel_class_init(ObjectClass *oc)
 {
     object_class_property_add(oc, "ignore-unknown-msr", "OnOffAuto",
@@ -2986,6 +3029,11 @@ void whpx_arch_accel_class_init(ObjectClass *oc)
         NULL, NULL);
     object_class_property_set_description(oc, "intercept-msr-gp",
         "Intercept #GP to log erroring MSR accesses.");
+    object_class_property_add(oc, "nested", "OnOffAuto",
+        NULL, whpx_set_nested_virt,
+        NULL, NULL);
+    object_class_property_set_description(oc, "intercept-msr-gp",
+        "Toggle nested virtualization off/on.");
 }
 
 int whpx_accel_init(AccelState *as, MachineState *ms)
@@ -3166,7 +3214,8 @@ int whpx_accel_init(AccelState *as, MachineState *ms)
     whpx_rdtsc_cap = processor_features.Bank0.RdtscpSupport;
     whpx_invpcid_cap = processor_features.Bank0.InvpcidSupport;
 
-    if (whpx_irqchip_in_kernel() && processor_features.Bank1.NestedVirtSupport) {
+    if (whpx_irqchip_in_kernel() && whpx->nested_virt_enabled
+        && processor_features.Bank1.NestedVirtSupport) {
         memset(&prop, 0, sizeof(WHV_PARTITION_PROPERTY));
         prop.NestedVirtualization = 1;
         hr = whp_dispatch.WHvSetPartitionProperty(
@@ -3174,11 +3223,14 @@ int whpx_accel_init(AccelState *as, MachineState *ms)
             WHvPartitionPropertyCodeNestedVirtualization,
             &prop,
             sizeof(WHV_PARTITION_PROPERTY));
-            if (FAILED(hr)) {
-                error_report("WHPX: Failed to enable nested virtualization, hr=%08lx", hr);
-                ret = -EINVAL;
-                goto error;
+        if (FAILED(hr)) {
+            error_report("WHPX: Failed to enable nested virtualization, hr=%08lx", hr);
+            ret = -EINVAL;
+            goto error;
         }
+    } else if (whpx->nested_virt_enabled) {
+        whpx->nested_virt_enabled = 0;
+        info_report("WHPX: nested virtualisation not available");
     }
 
     hr = whp_dispatch.WHvSetPartitionProperty(
@@ -3220,6 +3272,22 @@ int whpx_accel_init(AccelState *as, MachineState *ms)
          */
         synthetic_features.Bank0.TbFlushHypercalls = 1;
         synthetic_features.Bank0.EnableExtendedGvaRangesForFlushVirtualAddressList = 1;
+    }
+
+    if (whpx->nested_virt_enabled) {
+        /* enlightened VMCS is an Intel-specific enlightenment. */
+        hr = whp_dispatch.WHvGetCapability(
+            WHvCapabilityCodeProcessorVendor, &whpx_cap,
+            sizeof(whpx_cap), &whpx_cap_size);
+        if (FAILED(hr)) {
+            error_report("WHPX: Failed to query processor vendor, hr=%08lx", hr);
+            ret = -ENOSPC;
+            goto error;
+        }
+        if (whpx_cap.ProcessorVendor == WHvProcessorVendorIntel) {
+            synthetic_features.Bank0.EnlightenedVmcs = 1;
+            synthetic_features.Bank0.NestedDebugCtl = 1;
+        }
     }
 
     if (is_modern_os && whpx->hyperv_enlightenments_allowed) {
