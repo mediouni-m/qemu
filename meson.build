@@ -3399,7 +3399,7 @@ foreach target : target_dirs
     # PVG is not cross-architecture.  Use accelerator_targets as a proxy to
     # figure out which target can support PVG on this host
     if pvg.found() and target in accelerator_targets.get('CONFIG_HVF', [])
-      target_kconfig += 'CONFIG_MAC_PVG=y'
+      #target_kconfig += 'CONFIG_MAC_PVG=y'
     endif
 
     config_input = meson.get_external_property(target, 'default')
