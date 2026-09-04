@@ -789,6 +789,15 @@ void arm_emulate_firmware_reset(CPUState *cpustate, int target_el)
         }
     }
 
+    /*
+     * On HVF nested virt with VHE:
+     * if SCTLR_EL2.DZE is not set at reset, multicore Linux
+     * has DC ZVA non-functional outside of core 0.
+     */
+    if (have_el2 && target_el == 2 && cpu_isar_feature(aa64_vh, cpu)) {
+        env->cp15.sctlr_el[2] |= SCTLR_DZE;
+    }
+
     /* Set the CPU to the desired state */
     if (env->aarch64) {
         env->pstate = aarch64_pstate_mode(target_el, true);
